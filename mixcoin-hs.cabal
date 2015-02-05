@@ -19,6 +19,6 @@ executable mixcoin-hs
   main-is:             Main.hs
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.7 && <4.8, haskoin, stm, mtl, containers, either, transformers, scotty
+  build-depends:       base >=4.7 && <4.8, haskoin, stm, mtl, containers, either, transformers, scotty, aeson
   hs-source-dirs:      src
   default-language:    Haskell2010
