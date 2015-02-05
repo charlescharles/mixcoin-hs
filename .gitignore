@@ -8,4 +8,8 @@ cabal-dev
 .hsenv
 .cabal-sandbox/
 cabal.sandbox.config
+<<<<<<< HEAD
 cabal.config
+=======
+cabal.config
+>>>>>>> 0c8320a9e009d2fefcef43bb6d7c40dd42324eaf
