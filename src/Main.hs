@@ -20,6 +20,7 @@ import           Data.Aeson                 (FromJSON, ToJSON, Value (..),
                                              (.=))
 import qualified Data.Map                   as M
 import qualified Data.Text.Lazy             as T
+import           Mixcoin.Wallet
 import           Network.Haskoin.Crypto     hiding (PubKey)
 import           Network.HTTP.Types         (badRequest400)
 import           Web.Scotty
@@ -50,7 +51,7 @@ watchForTxs mstate = forever $ do
   threadDelay $ minutes 10
 
 scanTxs :: Mixcoin [Tx]
-scanTxs = return ["tx1", "tx2"]
+scanTxs = return []
 
 receiveTxs :: Mixcoin ()
 receiveTxs = do
