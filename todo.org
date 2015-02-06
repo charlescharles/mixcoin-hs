@@ -1,0 +1,8 @@
+* TODO btc-client api
+** TODO fetch unspent txs by [addr]
+** TODO get new addresses (set accounts)
+** TODO fetch existing addresses
+* TODO logging
+** TODO separate loggers for server, btcclient, mixer
+* TODO persistence
+** TODO record outstanding commitments

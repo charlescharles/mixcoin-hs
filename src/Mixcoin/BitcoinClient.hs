@@ -19,7 +19,12 @@ getReceivedForAddresses c as minConf =
 convertTx :: BT.UnspentTransaction -> HT.Tx
 convertTx UnspentTransaction{..} = Tx ver ins outs lock where
   ins = [TxIn outpt scr inSeq]
-  outpt = OutPoint 
+  outpt = OutPoint (convertTxHash unspentTransactionId) (fromIntegral outIdx)
+  scr = (C8.pack . T.unpack) unspentScriptPubKey
+
+  outs = [HT.TxOut amt outScript]
+  amt = fromIntegral unspentAmount
+  
 
 convertTxHash :: BT.TransactionID -> Maybe HT.TxHash
 convertTxHash = HC.decodeTxHashLE . T.unpack
