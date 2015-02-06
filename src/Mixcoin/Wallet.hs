@@ -3,7 +3,13 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Mixcoin.Wallet
-( Wallet, runWallet, signAll )
+
+( Wallet
+, WalletHandler
+, runWallet
+, signAll
+, newAddress
+, newWallet )
 
 where
 
@@ -14,13 +20,13 @@ import           Control.Monad.IO.Class
 import           Control.Monad.State.Class
 import           Control.Monad.Trans.Either
 import           Control.Monad.Trans.State.Lazy hiding (gets, modify)
-import qualified Data.ByteString                as BS
-import           Data.Either
 import qualified Data.Map                       as M
-import qualified Data.Text.Lazy                 as T
 import           Network.Haskoin.Crypto
 import           Network.Haskoin.Script
 import           Network.Haskoin.Transaction
+
+
+
 
 data Wallet = Wallet
               { keys :: !(M.Map Address PrvKey)
@@ -29,9 +35,14 @@ data Wallet = Wallet
 insertKeyPair :: Address -> PrvKey -> Wallet -> Wallet
 insertKeyPair a p w = Wallet $ M.insert a p (keys w)
 
-newtype WalletHandler a = WalletHandler { runW :: EitherT String (StateT Wallet IO) a }
+newtype WalletHandler a = WalletHandler
+                          { runW :: EitherT String (StateT Wallet IO) a }
                           deriving (Functor, Applicative, Monad,
-                          MonadIO, MonadState Wallet, MonadError String)
+                          	MonadIO, MonadState Wallet,
+                                MonadError String)
+
+newWallet :: Wallet
+newWallet = Wallet M.empty
 
 runWallet :: WalletHandler a -> Wallet -> IO (Either String a)
 runWallet m w = evalStateT ((runEitherT . runW) m) w
@@ -47,9 +58,9 @@ signAll :: Tx -> WalletHandler Tx
 signAll tx@(Tx _ txIns _ _) = do
   sigIns <- WalletHandler $ hoistEither $ mapM constructSigInput txIns
   pks <- fetchPrivKeys txIns
-  (tx, complete) <- WalletHandler $ hoistEither $ detSignTx tx sigIns pks
+  (signed, complete) <- WalletHandler $ hoistEither $ detSignTx tx sigIns pks
   unless complete (throwError "incomplete signature")
-  return tx
+  return signed
 
 constructSigInput :: TxIn -> Either String SigInput
 constructSigInput (TxIn prevOut script _) = SigInput <$>
