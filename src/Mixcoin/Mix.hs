@@ -7,8 +7,8 @@ module Mixcoin.Mix
 ( MixcoinState (..)
 , MixcoinError (..)
 , Chunk (..)
-, ChunkRequest (..)
-, SignedChunkRequest (..)
+, MixRequest (..)
+, SignedMixRequest (..)
 , PubKey
 , Log
 , Mixcoin
@@ -49,15 +49,15 @@ data Config = Config
 testConfig :: Config
 testConfig = Config 100 0.02 1
 
-data ChunkRequest = ChunkRequest
+data MixRequest = MixRequest
                     { sendBy   :: BlockHeight
                     , returnBy :: BlockHeight
                     , nonce    :: Int
                     , outAddr  :: PubKey
                     } deriving (Eq, Show)
 
-instance FromJSON ChunkRequest where
-  parseJSON (Object v) = ChunkRequest <$>
+instance FromJSON MixRequest where
+  parseJSON (Object v) = MixRequest <$>
          v .: "sendBy" <*>
                          v .: "returnBy" <*>
                          v .: "nonce" <*>
@@ -65,20 +65,20 @@ instance FromJSON ChunkRequest where
   parseJSON _ = mzero
 
 data Chunk = Chunk
-             { chunkRequest :: !ChunkRequest
-             , escrowAddr   :: !PubKey
+             { mixRequest :: !MixRequest
+             , escrowAddr :: !PubKey
              } deriving (Eq, Show)
 
-data SignedChunkRequest = SignedChunkRequest
+data SignedMixRequest = SignedMixRequest
                           { chunk   :: !Chunk
                           , warrant :: !PubKey
                           } deriving (Eq, Show)
 
-instance ToJSON SignedChunkRequest where
-  toJSON SignedChunkRequest{..} = object [ "sendBy" .= (sendBy . chunkRequest) chunk
-                                         , "returnBy" .= (returnBy . chunkRequest) chunk
-                                         , "nonce" .= (nonce . chunkRequest) chunk
-                                         , "outAddr" .= (outAddr . chunkRequest) chunk
+instance ToJSON SignedMixRequest where
+  toJSON SignedMixRequest{..} = object [ "sendBy" .= (sendBy . mixRequest) chunk
+                                         , "returnBy" .= (returnBy . mixRequest) chunk
+                                         , "nonce" .= (nonce . mixRequest) chunk
+                                         , "outAddr" .= (outAddr . mixRequest) chunk
                                          , "escrowAddr" .= escrowAddr chunk
                                          , "warrant" .= warrant ]
 
@@ -110,7 +110,7 @@ newState cfg = do
   retained <- atomically $ newTVar []
   return $ MixcoinState cfg pend mix retained
 
-handleMixRequest :: ChunkRequest -> Mixcoin SignedChunkRequest
+handleMixRequest :: MixRequest -> Mixcoin SignedMixRequest
 handleMixRequest r = do
   validateMixRequest r
   chunk <- addToPending r
@@ -119,14 +119,14 @@ handleMixRequest r = do
 ensure :: Bool -> MixcoinError -> Mixcoin ()
 ensure b = unless b . throwError
 
-validateMixRequest :: ChunkRequest -> Mixcoin ()
-validateMixRequest ChunkRequest{..} = do
+validateMixRequest :: MixRequest -> Mixcoin ()
+validateMixRequest MixRequest{..} = do
   cfg <- asks config
 
   ensure (sendBy > 1000) $ MixcoinError "invalid sendby index"
   ensure (returnBy - sendBy > fromIntegral (minConfs cfg)) $ MixcoinError "mixing period too short"
 
-addToPending :: ChunkRequest -> Mixcoin Chunk
+addToPending :: MixRequest -> Mixcoin Chunk
 addToPending r = do
   escrow <- generatePubKey
   pend <- asks pending
@@ -137,6 +137,6 @@ addToPending r = do
 generatePubKey :: Mixcoin PubKey
 generatePubKey = return "fake pubkey"
 
-sign :: Chunk -> Mixcoin SignedChunkRequest
+sign :: Chunk -> Mixcoin SignedMixRequest
 sign c = do
-  return $ SignedChunkRequest c "fake warrant"
+  return $ SignedMixRequest c "fake warrant"

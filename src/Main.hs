@@ -12,8 +12,6 @@ import qualified Data.Text.Lazy         as T
 import           Mixcoin.BitcoinClient
 import           Mixcoin.Mix
 import           Mixcoin.Mix
-import           Network.Bitcoin.Wallet (Client, getClient)
-import qualified Network.Bitcoin.Wallet as W
 import           Network.HTTP.Types     (badRequest400)
 import           Web.Scotty
 
