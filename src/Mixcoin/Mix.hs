@@ -6,17 +6,17 @@ module Mixcoin.Mix
 
 ( MixcoinState (..)
 , MixcoinError (..)
+, Config (..)
 , Chunk (..)
 , MixRequest (..)
 , SignedMixRequest (..)
-, PubKey
 , Log
 , Mixcoin
 , runMixcoin
+, execMixcoin
 , newState
 , handleMixRequest
-, testConfig
-, Tx
+, popMixChunk
 )
 
 where
@@ -33,10 +33,10 @@ import           Data.Aeson                 (FromJSON, ToJSON, Value (..),
                                              (.=))
 import qualified Data.Map                   as M
 import           Data.Word                  (Word32)
+import           Mixcoin.BitcoinClient
+import           Network.Haskoin.Crypto
+import           System.Random
 
-type Tx = String
-
-type PubKey = String
 
 type BlockHeight = Word32
 
@@ -44,16 +44,14 @@ data Config = Config
               { chunkSize :: Int
               , fee       :: Float
               , minConfs  :: Int
-              } deriving (Eq, Show)
-
-testConfig :: Config
-testConfig = Config 100 0.02 1
+              , client    :: Client
+              }
 
 data MixRequest = MixRequest
                     { sendBy   :: BlockHeight
                     , returnBy :: BlockHeight
                     , nonce    :: Int
-                    , outAddr  :: PubKey
+                    , outAddr  :: Address
                     } deriving (Eq, Show)
 
 instance FromJSON MixRequest where
@@ -65,28 +63,28 @@ instance FromJSON MixRequest where
   parseJSON _ = mzero
 
 data Chunk = Chunk
-             { mixRequest :: !MixRequest
-             , escrowAddr :: !PubKey
+             { mixReq     :: !MixRequest
+             , escrowAddr :: !Address
              } deriving (Eq, Show)
 
 data SignedMixRequest = SignedMixRequest
                           { chunk   :: !Chunk
-                          , warrant :: !PubKey
+                          , warrant :: !String
                           } deriving (Eq, Show)
 
 instance ToJSON SignedMixRequest where
-  toJSON SignedMixRequest{..} = object [ "sendBy" .= (sendBy . mixRequest) chunk
-                                         , "returnBy" .= (returnBy . mixRequest) chunk
-                                         , "nonce" .= (nonce . mixRequest) chunk
-                                         , "outAddr" .= (outAddr . mixRequest) chunk
+  toJSON SignedMixRequest{..} = object [ "sendBy" .= (sendBy . mixReq) chunk
+                                         , "returnBy" .= (returnBy . mixReq) chunk
+                                         , "nonce" .= (nonce . mixReq) chunk
+                                         , "outAddr" .= (outAddr . mixReq) chunk
                                          , "escrowAddr" .= escrowAddr chunk
                                          , "warrant" .= warrant ]
 
 data MixcoinState = MixcoinState
                     { config   :: Config
-                    , pending  :: TVar (M.Map PubKey Chunk)
-                    , mixing   :: TVar [PubKey]
-                    , retained :: TVar [PubKey]
+                    , pending  :: TVar (M.Map Address Chunk)
+                    , mixing   :: TVar [Address]
+                    , retained :: TVar [Address]
                     }
 
 newtype MixcoinError = MixcoinError String deriving (Eq, Show)
@@ -103,11 +101,14 @@ newtype Mixcoin a = Mixcoin
 runMixcoin :: MixcoinState -> Mixcoin a -> IO (Either MixcoinError a, [Log])
 runMixcoin s = flip runReaderT s . (runWriterT . runEitherT . runM)
 
+execMixcoin :: MixcoinState -> Mixcoin a -> IO ()
+execMixcoin s m = runMixcoin s m >> return ()
+
 newState :: Config -> IO MixcoinState
 newState cfg = do
   pend <- newTVarIO M.empty
   mix <- newTVarIO []
-  retained <- atomically $ newTVar []
+  retained <- newTVarIO []
   return $ MixcoinState cfg pend mix retained
 
 handleMixRequest :: MixRequest -> Mixcoin SignedMixRequest
@@ -128,15 +129,29 @@ validateMixRequest MixRequest{..} = do
 
 addToPending :: MixRequest -> Mixcoin Chunk
 addToPending r = do
-  escrow <- generatePubKey
+  escrow <- asks config >>= liftIO . getNewAddress . client
   pend <- asks pending
   let chunk = Chunk r escrow
   liftIO $ atomically $ modifyTVar' pend (M.insert escrow chunk)
   return chunk
 
-generatePubKey :: Mixcoin PubKey
-generatePubKey = return "fake pubkey"
-
 sign :: Chunk -> Mixcoin SignedMixRequest
 sign c = do
   return $ SignedMixRequest c "fake warrant"
+
+-- randomly pop an element from the mixing TVar
+popMixChunk :: Mixcoin Address
+popMixChunk = do
+  g <- liftIO getStdGen
+  mixPool <- asks mixing
+  (addr, g') <- liftIO $ atomically $ do
+        addrs <- readTVar mixPool
+        let n = length addrs
+            (i, next) = randomR (0, n-1) g
+        modifyTVar' mixPool (removeAt i)
+        return (addrs !! i, next) :: STM (Address, StdGen)
+  liftIO $ setStdGen g'
+  return addr
+
+removeAt :: Int -> [a] -> [a]
+removeAt i xs = take i xs ++ drop (succ i) xs

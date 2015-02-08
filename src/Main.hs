@@ -2,23 +2,29 @@
 
 module Main where
 
-import           Control.Concurrent     (forkIO, threadDelay)
+import           Control.Concurrent        (forkIO, threadDelay)
 import           Control.Concurrent.STM
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.Writer
-import qualified Data.Map               as M
-import qualified Data.Text.Lazy         as T
+import           Data.Functor              ((<$>))
+import qualified Data.Map                  as M
+import qualified Data.Text.Lazy            as T
 import           Mixcoin.BitcoinClient
 import           Mixcoin.Mix
-import           Mixcoin.Mix
-import           Network.HTTP.Types     (badRequest400)
+import           Network.Haskoin.Constants (switchToTestnet3)
+import           Network.Haskoin.Crypto
+import           Network.HTTP.Types        (badRequest400)
 import           Web.Scotty
+
+testConfig :: IO Config
+testConfig = (Config 2 0.002 1) <$> (getClient' "http://127.0.0.1:9001" "cguo" "Thereis1")
 
 main :: IO ()
 main = do
-  mixState <- newState testConfig
-  _ <- forkIO $ watchForTxs mixState
+  switchToTestnet3
+  mixState <- testConfig >>= newState
+  _ <- forkIO $ execMixcoin mixState watchForTxs
   scotty 9000 (server mixState)
 
 server :: MixcoinState -> ScottyM ()
@@ -35,45 +41,56 @@ mixRequest mstate = do
      text $ T.pack (show err)
    Right signed -> json signed
 
-watchForTxs :: MixcoinState -> IO ()
-watchForTxs mstate = forever $ do
-  _ <- forkIO $ runMixcoin mstate receiveTxs >> return ()
-  threadDelay $ minutes 10
-
-scanTxs :: Mixcoin [Tx]
-scanTxs = return []
+watchForTxs :: Mixcoin ()
+watchForTxs = forever $ receiveTxs >> waitMinutes 10
 
 receiveTxs :: Mixcoin ()
 receiveTxs = do
   tell ["scanning for transactions"]
-  txs <- scanTxs
-  forM_ txs receiveChunk
+  addrs <- asks pending >>= liftIO . fmap M.keys . readTVarIO
+  c <- client <$> asks config
+  confs <- minConfs <$> asks config
+  received <- liftIO $ getReceivedForAddresses c addrs confs
+  forM_ received receiveChunk
 
-receiveChunk :: PubKey -> Mixcoin ()
-receiveChunk pk = do
+-- move chunk from pending to mixing; start mix
+receiveChunk :: ReceivedChunk -> Mixcoin ()
+receiveChunk c = do
   pendV <- asks pending
   mixV <- asks mixing
   pend <- liftIO $ readTVarIO pendV
   -- TODO error handling here?
-  let Just c = M.lookup pk pend
-
+  let addr = destAddr c
+      Just info = M.lookup addr pend
   liftIO $ atomically $ do
-    modifyTVar' pendV (M.delete pk)
-    modifyTVar' mixV (pk:)
+    modifyTVar' pendV (M.delete addr)
+    modifyTVar' mixV (addr:)
 
-  mix c
+  mix info
 
+-- generate delay, wait, send chunk
 mix :: Chunk -> Mixcoin ()
 mix c = do
   delay <- generateDelay c
-  _ <- liftIO $ forkIO $ waitSend delay (outAddr $ chunkRequest c)
+  mstate <- ask
+  let out = outAddr (mixReq c)
+      send = waitSend delay out
+  _ <- liftIO $ forkIO $ execMixcoin mstate send
   return ()
 
+-- generate delay in minutes
 generateDelay :: Chunk -> Mixcoin Int
-generateDelay c = return (minutes 3)
+generateDelay c = return 3
 
-waitSend :: Int -> PubKey -> IO ()
-waitSend d pk = undefined
+waitSend :: Int -> Address -> Mixcoin ()
+waitSend d to = do
+  liftIO (waitMinutes d)
+  from <- popMixChunk
+  c <- client <$> asks config
+  liftIO $ sendChunk c from to
+
+waitMinutes :: MonadIO m => Int -> m ()
+waitMinutes = liftIO . threadDelay . minutes
 
 minutes :: Int -> Int
 minutes = (* (truncate 6e7))
