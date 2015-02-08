@@ -1,8 +1,13 @@
 * TODO btc-client api
-** TODO fetch unspent txs by [addr]
-** TODO get new addresses (set accounts)
-** TODO fetch existing addresses
+** DONE fetch unspent txs by [addr]
+   CLOSED: [2015-02-07 Sat 22:31]
+** DONE get new addresses (set accounts)
+   CLOSED: [2015-02-07 Sat 22:31]
+** DONE fetch existing addresses
+   CLOSED: [2015-02-07 Sat 22:31]
 * TODO logging
 ** TODO separate loggers for server, btcclient, mixer
 * TODO persistence
 ** TODO record outstanding commitments
+* DONE configuration
+  CLOSED: [2015-02-07 Sat 22:31]

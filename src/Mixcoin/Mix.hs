@@ -6,7 +6,7 @@ module Mixcoin.Mix
 
 ( MixcoinState (..)
 , MixcoinError (..)
-, Config (..)
+, MixcoinConfig (..)
 , Chunk (..)
 , MixRequest (..)
 , SignedMixRequest (..)
@@ -40,7 +40,7 @@ import           System.Random
 
 type BlockHeight = Word32
 
-data Config = Config
+data MixcoinConfig = MixcoinConfig
               { chunkSize :: Int
               , fee       :: Float
               , minConfs  :: Int
@@ -81,7 +81,7 @@ instance ToJSON SignedMixRequest where
                                          , "warrant" .= warrant ]
 
 data MixcoinState = MixcoinState
-                    { config   :: Config
+                    { config   :: MixcoinConfig
                     , pending  :: TVar (M.Map Address Chunk)
                     , mixing   :: TVar [Address]
                     , retained :: TVar [Address]
@@ -104,7 +104,7 @@ runMixcoin s = flip runReaderT s . (runWriterT . runEitherT . runM)
 execMixcoin :: MixcoinState -> Mixcoin a -> IO ()
 execMixcoin s m = runMixcoin s m >> return ()
 
-newState :: Config -> IO MixcoinState
+newState :: MixcoinConfig -> IO MixcoinState
 newState cfg = do
   pend <- newTVarIO M.empty
   mix <- newTVarIO []

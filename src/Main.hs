@@ -7,6 +7,7 @@ import           Control.Concurrent.STM
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.Writer
+import           Data.Configurator
 import           Data.Functor              ((<$>))
 import qualified Data.Map                  as M
 import qualified Data.Text.Lazy            as T
@@ -17,8 +18,23 @@ import           Network.Haskoin.Crypto
 import           Network.HTTP.Types        (badRequest400)
 import           Web.Scotty
 
-testConfig :: IO Config
-testConfig = (Config 2 0.002 1) <$> (getClient' "http://127.0.0.1:9001" "cguo" "Thereis1")
+testConfig :: IO MixcoinConfig
+testConfig = (MixcoinConfig 2 0.002 1) <$> (getClient' "http://127.0.0.1:9001" "cguo" "Thereis1")
+
+getConfig :: IO MixcoinConfig
+getConfig = do
+  cfg <- load [Required "~/.mixcoin/server.cfg"]
+  chunkSize' <- require cfg "chunk-size"
+  fee' <- require cfg "fee"
+  minConfs' <- require cfg "min-confirmations"
+  btcHost <- require cfg "bitcoind-host"
+  btcUser <- require cfg "bitcoind-user"
+  btcPass <- require cfg "bitcoind-pass"
+  client' <- getClient' btcHost btcUser btcPass
+  return $ MixcoinConfig { chunkSize = chunkSize'
+              		 , fee = fee'
+             		 , minConfs = minConfs'
+              		 , client = client' }
 
 main :: IO ()
 main = do
