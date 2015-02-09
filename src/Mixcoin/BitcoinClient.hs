@@ -2,8 +2,9 @@
 
 module Mixcoin.BitcoinClient
 
-( ReceivedChunk(..)
+( UTXO (..)
 , Client
+, Satoshis
 , getReceivedForAddresses
 , getClient'
 , sendChunk
@@ -28,13 +29,16 @@ import           Network.Bitcoin.Wallet         (Client)
 import qualified Network.Bitcoin.Wallet         as BW
 import qualified Network.Haskoin.Crypto         as HC
 
-data ReceivedChunk = ReceivedChunk
-                     { txId        :: !HC.TxHash
-                     , destAddr    :: !HC.Address
-                     , blockHash   :: !HC.BlockHash
-                     , blockHeight :: !Word32
-                     , outIndex    :: !Word32
-                     } deriving (Eq, Show, Read)
+data UTXO = UTXO
+            { unspentTx   :: !BR.UnspentTransaction
+            , destAddr    :: !HC.Address
+            , blockHash   :: !HC.BlockHash
+            , blockHeight :: !Word32
+            , outIndex    :: !Word32
+             }
+            deriving (Eq, Show)
+
+newtype Satoshis = Satoshis BR.BTC deriving (Eq, Read, Show)
 
 acctName :: BT.Account
 acctName = T.pack "mixcoin"
@@ -45,14 +49,13 @@ getClient' h u p = BR.getClient h (C8.pack u) (C8.pack p)
 getNewAddress :: Client -> IO HC.Address
 getNewAddress c = (fromJust . convertAddress) <$> BW.getNewAddress c (Just acctName)
 
-getReceivedForAddresses :: Client -> [HC.Address] -> Int -> IO [ReceivedChunk]
+getReceivedForAddresses :: Client -> [HC.Address] -> Int -> IO [UTXO]
 getReceivedForAddresses c as minConf = catMaybes <$> (unspent >>= mapM (processReceived c)) where
   unspent = toList <$> BR.listUnspent c (Just minConf) Nothing (fromList addrs)
   addrs = map convertAddress' as
 
-processReceived :: Client -> BR.UnspentTransaction -> IO (Maybe ReceivedChunk)
-processReceived c (BR.UnspentTransaction txid outidx addr _ _ _ _) = runMaybeT $ do
-  txid' <- MaybeT . return $ convertTxHash txid
+processReceived :: Client -> BR.UnspentTransaction -> IO (Maybe UTXO)
+processReceived c ut@(BR.UnspentTransaction txid outidx addr _ _ _ _) = runMaybeT $ do
   addr' <- MaybeT . return $ convertAddress addr
   let outidx' = fromIntegral outidx
   rawTx <- liftIO $ BR.getRawTransactionInfo c txid
@@ -60,7 +63,7 @@ processReceived c (BR.UnspentTransaction txid outidx addr _ _ _ _) = runMaybeT $
   hash' <- MaybeT . return $ (HC.decodeBlockHashLE . T.unpack) hash
   blk <- liftIO $ BB.getBlock c hash
   let height = fromIntegral (BB.blkHeight blk)
-  return $ ReceivedChunk { txId = txid', destAddr = addr', blockHash = hash', blockHeight = height, outIndex = outidx'}
+  return $ UTXO { unspentTx = ut, destAddr = addr', blockHash = hash', blockHeight = height, outIndex = outidx' }
 
 convertAddress :: BT.Address -> Maybe HC.Address
 convertAddress = HC.base58ToAddr . T.unpack
@@ -72,5 +75,14 @@ convertAddress' = T.pack . HC.addrToBase58
 convertTxHash :: BT.TransactionID -> Maybe HC.TxHash
 convertTxHash = HC.decodeTxHashLE . T.unpack
 
-sendChunk :: Client -> HC.Address -> HC.Address -> IO ()
-sendChunk c from to = undefined
+sendChunkWithFee :: Client -> UTXO -> UTXO -> HC.Address -> Satoshis -> Satoshis -> IO ()
+sendChunkWithFee c ut feeUt destAddr (Satoshis destAmt) (Satoshis feeAmt) = do
+  let dest = convertAddress' destAddr
+      feeDest = convertAddress' (destAddr feeUt)
+      utxos = [unspentTx ut, unspentTx feeUt]
+      outs = [(dest, destAmt), (feeDest, feeAmt)]
+  raw <- BR.createRawTransaction c (fromList utxos) (fromList outs)
+  signed <- BR.signRawTransaction c raw Nothing Nothing Nothing
+  _ <- BR.sendRawTransaction c (BR.rawSigned signed)
+  return ()
+

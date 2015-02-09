@@ -7,7 +7,7 @@ module Mixcoin.Mix
 ( MixcoinState (..)
 , MixcoinError (..)
 , MixcoinConfig (..)
-, Chunk (..)
+, LabeledMixRequest (..)
 , MixRequest (..)
 , SignedMixRequest (..)
 , Log
@@ -16,7 +16,7 @@ module Mixcoin.Mix
 , execMixcoin
 , newState
 , handleMixRequest
-, popMixChunk
+, popMixingUtxo
 )
 
 where
@@ -37,14 +37,14 @@ import           Mixcoin.BitcoinClient
 import           Network.Haskoin.Crypto
 import           System.Random
 
-
 type BlockHeight = Word32
 
 data MixcoinConfig = MixcoinConfig
-              { chunkSize :: Int
-              , fee       :: Float
-              , minConfs  :: Int
-              , client    :: Client
+              { chunkSize      :: Satoshis
+              , minerFee       :: Satoshis
+              , feeProbability :: Float
+              , minConfs       :: Int
+              , client         :: Client
               }
 
 data MixRequest = MixRequest
@@ -62,29 +62,29 @@ instance FromJSON MixRequest where
                          v .: "outAddr"
   parseJSON _ = mzero
 
-data Chunk = Chunk
+data LabeledMixRequest = LabeledMixRequest
              { mixReq     :: !MixRequest
              , escrowAddr :: !Address
              } deriving (Eq, Show)
 
 data SignedMixRequest = SignedMixRequest
-                          { chunk   :: !Chunk
-                          , warrant :: !String
+                          { labeledMixReq :: !LabeledMixRequest
+                          , warrant       :: !String
                           } deriving (Eq, Show)
 
 instance ToJSON SignedMixRequest where
-  toJSON SignedMixRequest{..} = object [ "sendBy" .= (sendBy . mixReq) chunk
-                                         , "returnBy" .= (returnBy . mixReq) chunk
-                                         , "nonce" .= (nonce . mixReq) chunk
-                                         , "outAddr" .= (outAddr . mixReq) chunk
-                                         , "escrowAddr" .= escrowAddr chunk
+  toJSON SignedMixRequest{..} = object [ "sendBy" .= (sendBy . mixReq) labeledMixReq
+                                         , "returnBy" .= (returnBy . mixReq) labeledMixReq
+                                         , "nonce" .= (nonce . mixReq) labeledMixReq
+                                         , "outAddr" .= (outAddr . mixReq) labeledMixReq
+                                         , "escrowAddr" .= escrowAddr labeledMixReq
                                          , "warrant" .= warrant ]
 
 data MixcoinState = MixcoinState
                     { config   :: MixcoinConfig
-                    , pending  :: TVar (M.Map Address Chunk)
-                    , mixing   :: TVar [Address]
-                    , retained :: TVar [Address]
+                    , pending  :: TVar (M.Map Address LabeledMixRequest)
+                    , mixing   :: TVar [UTXO]
+                    , retained :: TVar [UTXO]
                     }
 
 newtype MixcoinError = MixcoinError String deriving (Eq, Show)
@@ -127,21 +127,21 @@ validateMixRequest MixRequest{..} = do
   ensure (sendBy > 1000) $ MixcoinError "invalid sendby index"
   ensure (returnBy - sendBy > fromIntegral (minConfs cfg)) $ MixcoinError "mixing period too short"
 
-addToPending :: MixRequest -> Mixcoin Chunk
+addToPending :: MixRequest -> Mixcoin LabeledMixRequest
 addToPending r = do
   escrow <- asks config >>= liftIO . getNewAddress . client
   pend <- asks pending
-  let chunk = Chunk r escrow
-  liftIO $ atomically $ modifyTVar' pend (M.insert escrow chunk)
-  return chunk
+  let labeled = LabeledMixRequest r escrow
+  liftIO $ atomically $ modifyTVar' pend (M.insert escrow labeled)
+  return labeled
 
-sign :: Chunk -> Mixcoin SignedMixRequest
+sign :: LabeledMixRequest -> Mixcoin SignedMixRequest
 sign c = do
   return $ SignedMixRequest c "fake warrant"
 
 -- randomly pop an element from the mixing TVar
-popMixChunk :: Mixcoin Address
-popMixChunk = do
+popMixingUtxo :: Mixcoin UTXO
+popMixingUtxo = do
   g <- liftIO getStdGen
   mixPool <- asks mixing
   (addr, g') <- liftIO $ atomically $ do
@@ -149,7 +149,7 @@ popMixChunk = do
         let n = length addrs
             (i, next) = randomR (0, n-1) g
         modifyTVar' mixPool (removeAt i)
-        return (addrs !! i, next) :: STM (Address, StdGen)
+        return (addrs !! i, next)
   liftIO $ setStdGen g'
   return addr
 

@@ -5,9 +5,10 @@
    CLOSED: [2015-02-07 Sat 22:31]
 ** DONE fetch existing addresses
    CLOSED: [2015-02-07 Sat 22:31]
+** TODO convert Word64 to Fixed Satoshi
 * TODO logging
 ** TODO separate loggers for server, btcclient, mixer
 * TODO persistence
-** TODO record outstanding commitments
+** TODO persist outstanding commitments
 * DONE configuration
   CLOSED: [2015-02-07 Sat 22:31]

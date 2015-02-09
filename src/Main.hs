@@ -13,26 +13,29 @@ import qualified Data.Map                  as M
 import qualified Data.Text.Lazy            as T
 import           Mixcoin.BitcoinClient
 import           Mixcoin.Mix
+import           Mixcoin.Util
 import           Network.Haskoin.Constants (switchToTestnet3)
 import           Network.Haskoin.Crypto
 import           Network.HTTP.Types        (badRequest400)
 import           Web.Scotty
 
 testConfig :: IO MixcoinConfig
-testConfig = (MixcoinConfig 2 0.002 1) <$> (getClient' "http://127.0.0.1:9001" "cguo" "Thereis1")
+testConfig = (MixcoinConfig (Satoshis 10000) (Satoshis 500) 0.002 1) <$> (getClient' "http://127.0.0.1:9001" "cguo" "Thereis1")
 
 getConfig :: IO MixcoinConfig
 getConfig = do
   cfg <- load [Required "~/.mixcoin/server.cfg"]
-  chunkSize' <- require cfg "chunk-size"
-  fee' <- require cfg "fee"
+  chunkSize' <- btcToSatoshis <$> require cfg "chunk-size"
+  minerFee' <- btcToSatoshis <$> require cfg "miner-fee"
+  feeProb <- require cfg "fee"
   minConfs' <- require cfg "min-confirmations"
   btcHost <- require cfg "bitcoind-host"
   btcUser <- require cfg "bitcoind-user"
   btcPass <- require cfg "bitcoind-pass"
   client' <- getClient' btcHost btcUser btcPass
   return $ MixcoinConfig { chunkSize = chunkSize'
-              		 , fee = fee'
+              		 , minerFee = minerFee'
+                         , feeProbability = feeProb
              		 , minConfs = minConfs'
               		 , client = client' }
 
@@ -70,40 +73,44 @@ receiveTxs = do
   forM_ received receiveChunk
 
 -- move chunk from pending to mixing; start mix
-receiveChunk :: ReceivedChunk -> Mixcoin ()
-receiveChunk c = do
+receiveChunk :: UTXO -> Mixcoin ()
+receiveChunk u = do
   pendV <- asks pending
   mixV <- asks mixing
   pend <- liftIO $ readTVarIO pendV
   -- TODO error handling here?
-  let addr = destAddr c
+  let addr = destAddr u
       Just info = M.lookup addr pend
   liftIO $ atomically $ do
     modifyTVar' pendV (M.delete addr)
-    modifyTVar' mixV (addr:)
+    modifyTVar' mixV (u:)
 
   mix info
 
 -- generate delay, wait, send chunk
-mix :: Chunk -> Mixcoin ()
+mix :: LabeledMixRequest -> Mixcoin ()
 mix c = do
   delay <- generateDelay c
   mstate <- ask
   let out = outAddr (mixReq c)
       send = waitSend delay out
-  _ <- liftIO $ forkIO $ execMixcoin mstate send
+  --_ <- liftIO $ forkIO $ execMixcoin mstate send
   return ()
 
 -- generate delay in minutes
-generateDelay :: Chunk -> Mixcoin Int
+generateDelay :: LabeledMixRequest -> Mixcoin Int
 generateDelay c = return 3
 
 waitSend :: Int -> Address -> Mixcoin ()
-waitSend d to = do
+waitSend d dest = do
   liftIO (waitMinutes d)
-  from <- popMixChunk
-  c <- client <$> asks config
-  liftIO $ sendChunk c from to
+  utxo <- popMixingUtxo
+  feeUtxo <- popFeeUtxo
+  cfg <- asks config
+  let c = client cfg
+      destAmt = chunkSize cfg
+      feeAmt = feeSize cfg
+  liftIO $ sendChunkWithFee c utxo feeUtxo (dest, destAmt) feeAmt
 
 waitMinutes :: MonadIO m => Int -> m ()
 waitMinutes = liftIO . threadDelay . minutes
