@@ -4,10 +4,10 @@ module Mixcoin.BitcoinClient
 
 ( UTXO (..)
 , Client
-, Satoshis
+, BTC
 , getReceivedForAddresses
 , getClient'
-, sendChunk
+, sendChunkWithFee
 , getNewAddress
 )
 
@@ -29,6 +29,8 @@ import           Network.Bitcoin.Wallet         (Client)
 import qualified Network.Bitcoin.Wallet         as BW
 import qualified Network.Haskoin.Crypto         as HC
 
+type BTC = BT.BTC
+
 data UTXO = UTXO
             { unspentTx   :: !BR.UnspentTransaction
             , destAddr    :: !HC.Address
@@ -37,8 +39,6 @@ data UTXO = UTXO
             , outIndex    :: !Word32
              }
             deriving (Eq, Show)
-
-newtype Satoshis = Satoshis BR.BTC deriving (Eq, Read, Show)
 
 acctName :: BT.Account
 acctName = T.pack "mixcoin"
@@ -75,12 +75,12 @@ convertAddress' = T.pack . HC.addrToBase58
 convertTxHash :: BT.TransactionID -> Maybe HC.TxHash
 convertTxHash = HC.decodeTxHashLE . T.unpack
 
-sendChunkWithFee :: Client -> UTXO -> UTXO -> HC.Address -> Satoshis -> Satoshis -> IO ()
-sendChunkWithFee c ut feeUt destAddr (Satoshis destAmt) (Satoshis feeAmt) = do
-  let dest = convertAddress' destAddr
+sendChunkWithFee :: Client -> UTXO -> UTXO -> HC.Address -> BTC -> BTC -> IO ()
+sendChunkWithFee c ut feeUt dest destAmt feeAmt = do
+  let dest' = convertAddress' dest
       feeDest = convertAddress' (destAddr feeUt)
       utxos = [unspentTx ut, unspentTx feeUt]
-      outs = [(dest, destAmt), (feeDest, feeAmt)]
+      outs = [(dest', destAmt), (feeDest, feeAmt)]
   raw <- BR.createRawTransaction c (fromList utxos) (fromList outs)
   signed <- BR.signRawTransaction c raw Nothing Nothing Nothing
   _ <- BR.sendRawTransaction c (BR.rawSigned signed)

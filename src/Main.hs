@@ -13,21 +13,20 @@ import qualified Data.Map                  as M
 import qualified Data.Text.Lazy            as T
 import           Mixcoin.BitcoinClient
 import           Mixcoin.Mix
-import           Mixcoin.Util
 import           Network.Haskoin.Constants (switchToTestnet3)
 import           Network.Haskoin.Crypto
 import           Network.HTTP.Types        (badRequest400)
 import           Web.Scotty
 
 testConfig :: IO MixcoinConfig
-testConfig = (MixcoinConfig (Satoshis 10000) (Satoshis 500) 0.002 1) <$> (getClient' "http://127.0.0.1:9001" "cguo" "Thereis1")
+testConfig = (MixcoinConfig 0.02 0.01 0.002 1) <$> (getClient' "http://127.0.0.1:9001" "cguo" "Thereis1")
 
 getConfig :: IO MixcoinConfig
 getConfig = do
   cfg <- load [Required "~/.mixcoin/server.cfg"]
-  chunkSize' <- btcToSatoshis <$> require cfg "chunk-size"
-  minerFee' <- btcToSatoshis <$> require cfg "miner-fee"
-  feeProb <- require cfg "fee"
+  chunkSize' <- require cfg "chunk-size" :: IO BTC
+  minerFee' <- require cfg "miner-fee" :: IO BTC
+  feeProb <- require cfg "fee-percentage"
   minConfs' <- require cfg "min-confirmations"
   btcHost <- require cfg "bitcoind-host"
   btcUser <- require cfg "bitcoind-user"
@@ -94,7 +93,7 @@ mix c = do
   mstate <- ask
   let out = outAddr (mixReq c)
       send = waitSend delay out
-  --_ <- liftIO $ forkIO $ execMixcoin mstate send
+  _ <- liftIO $ forkIO $ execMixcoin mstate send
   return ()
 
 -- generate delay in minutes
@@ -109,8 +108,8 @@ waitSend d dest = do
   cfg <- asks config
   let c = client cfg
       destAmt = chunkSize cfg
-      feeAmt = feeSize cfg
-  liftIO $ sendChunkWithFee c utxo feeUtxo (dest, destAmt) feeAmt
+      feeAmt = minerFee cfg
+  liftIO $ sendChunkWithFee c utxo feeUtxo dest destAmt feeAmt
 
 waitMinutes :: MonadIO m => Int -> m ()
 waitMinutes = liftIO . threadDelay . minutes

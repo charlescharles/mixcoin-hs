@@ -17,6 +17,7 @@ module Mixcoin.Mix
 , newState
 , handleMixRequest
 , popMixingUtxo
+, popFeeUtxo
 )
 
 where
@@ -40,8 +41,8 @@ import           System.Random
 type BlockHeight = Word32
 
 data MixcoinConfig = MixcoinConfig
-              { chunkSize      :: Satoshis
-              , minerFee       :: Satoshis
+              { chunkSize      :: BTC
+              , minerFee       :: BTC
               , feeProbability :: Float
               , minConfs       :: Int
               , client         :: Client
@@ -152,6 +153,9 @@ popMixingUtxo = do
         return (addrs !! i, next)
   liftIO $ setStdGen g'
   return addr
+
+popFeeUtxo :: Mixcoin UTXO
+popFeeUtxo = undefined
 
 removeAt :: Int -> [a] -> [a]
 removeAt i xs = take i xs ++ drop (succ i) xs
