@@ -76,6 +76,25 @@ data LabeledMixRequest = LabeledMixRequest
              , escrowAddr :: !Address
              } deriving (Eq, Show)
 
+instance ToJSON LabeledMixRequest where
+  toJSON LabeledMixRequest{..} = Array . V.fromList $
+                                 [ object [ "sendBy" .=  sendBy mixReq ]
+                                 , object [ "returnBy" .= returnBy mixReq ]
+                                 , object [ "nonce" .= nonce mixReq ]
+                                 , object [ "outAddr" .= outAddr mixReq ]
+                                 , object [ "escrowAddr" .= escrowAddr ] ]
+
+instance FromJSON LabeledMixRequest where
+  parseJSON j = do
+    [sendby', returnby', nonce', out', escrow'] <- parseJSON j
+    mixreq <- MixRequest <$> sendby' .: "sendBy"
+    			<*> returnby' .: "returnBy"
+              		<*> nonce' .: "nonce"
+              		<*> out' .: "outAddr"
+    LabeledMixRequest mixreq <$> escrow' .: "escrowAddr"
+
+  parseJSON _ = mzero
+
 data SignedMixRequest = SignedMixRequest
                           { labeledMixReq :: !LabeledMixRequest
                           , warrant       :: !String
