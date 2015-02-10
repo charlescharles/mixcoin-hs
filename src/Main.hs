@@ -74,17 +74,36 @@ receiveTxs = do
 -- move chunk from pending to mixing; start mix
 receiveChunk :: UTXO -> Mixcoin ()
 receiveChunk u = do
-  pendV <- asks pending
-  mixV <- asks mixing
-  pend <- liftIO $ readTVarIO pendV
+  pend <- asks pending >>= liftIO . readTVarIO
   -- TODO error handling here?
   let addr = destAddr u
       Just info = M.lookup addr pend
-  liftIO $ atomically $ do
-    modifyTVar' pendV (M.delete addr)
-    modifyTVar' mixV (u:)
+  feeProb <- feeProbability <$> asks config
+  if isFee feeProb u info
+     then addToRetained addr u
+     else addToMixing addr u >> mix info
 
-  mix info
+addToMixing :: Address -> UTXO -> Mixcoin ()
+addToMixing addr u = do
+  mixPool <- asks mixing
+  moveToPool mixPool addr u
+
+addToRetained :: Address -> UTXO -> Mixcoin ()
+addToRetained addr u = do
+  retain <- asks retained
+  moveToPool retain addr u
+
+-- delete addr from pending, cons UTXO onto dest pool
+moveToPool :: TVar [UTXO] -> Address -> UTXO -> Mixcoin ()
+moveToPool dest addr ut = do
+  pend <- asks pending
+  liftIO . atomically $ do
+    modifyTVar' pend (M.delete addr)
+    modifyTVar' dest (ut:)
+
+-- hash nonce || blockhash
+isFee :: Float -> UTXO -> LabeledMixRequest -> Bool
+isFee _ _ _ = False
 
 -- generate delay, wait, send chunk
 mix :: LabeledMixRequest -> Mixcoin ()
@@ -114,5 +133,6 @@ waitSend d dest = do
 waitMinutes :: MonadIO m => Int -> m ()
 waitMinutes = liftIO . threadDelay . minutes
 
+-- milliseconds in a minute
 minutes :: Int -> Int
-minutes = (* (truncate 6e7))
+minutes = (* (truncate (6e7 :: Double)))

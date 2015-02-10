@@ -1,11 +1,13 @@
-* TODO btc-client api
+* DONE btc-client api
+  CLOSED: [2015-02-10 Tue 00:52]
 ** DONE fetch unspent txs by [addr]
    CLOSED: [2015-02-07 Sat 22:31]
 ** DONE get new addresses (set accounts)
    CLOSED: [2015-02-07 Sat 22:31]
 ** DONE fetch existing addresses
    CLOSED: [2015-02-07 Sat 22:31]
-** TODO convert Word64 to Fixed Satoshi
+** DONE convert Word64 to Fixed Satoshi
+   CLOSED: [2015-02-10 Tue 00:52]
 * TODO logging
 ** TODO separate loggers for server, btcclient, mixer
 * TODO persistence

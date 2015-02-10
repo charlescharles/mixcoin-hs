@@ -68,12 +68,8 @@ processReceived c ut@(BR.UnspentTransaction txid outidx addr _ _ _ _) = runMaybe
 convertAddress :: BT.Address -> Maybe HC.Address
 convertAddress = HC.base58ToAddr . T.unpack
 
--- not sure if Network.Bitcoin will take base-58 encoded
 convertAddress' :: HC.Address -> BT.Address
 convertAddress' = T.pack . HC.addrToBase58
-
-convertTxHash :: BT.TransactionID -> Maybe HC.TxHash
-convertTxHash = HC.decodeTxHashLE . T.unpack
 
 sendChunkWithFee :: Client -> UTXO -> UTXO -> HC.Address -> BTC -> BTC -> IO ()
 sendChunkWithFee c ut feeUt dest destAmt feeAmt = do
