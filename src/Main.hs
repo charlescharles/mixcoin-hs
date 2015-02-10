@@ -12,11 +12,14 @@ import           Data.Functor              ((<$>))
 import qualified Data.Map                  as M
 import qualified Data.Text.Lazy            as T
 import           Mixcoin.BitcoinClient
+import           Mixcoin.Crypto
 import           Mixcoin.Mix
 import           Network.Haskoin.Constants (switchToTestnet3)
 import           Network.Haskoin.Crypto
 import           Network.HTTP.Types        (badRequest400)
+import           System.IO                 (Handle, stderr)
 import           Web.Scotty
+
 
 testConfig :: IO MixcoinConfig
 testConfig = (MixcoinConfig 0.02 0.01 0.002 1) <$> (getClient' "http://127.0.0.1:9001" "cguo" "Thereis1")

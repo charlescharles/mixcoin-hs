@@ -33,6 +33,7 @@ import           Data.Aeson                 (FromJSON, ToJSON, Value (..),
                                              object, parseJSON, toJSON, (.:),
                                              (.=))
 import qualified Data.Map                   as M
+import qualified Data.Vector                as V (fromList)
 import           Data.Word                  (Word32)
 import           Mixcoin.BitcoinClient
 import           Network.Haskoin.Crypto
@@ -55,6 +56,13 @@ data MixRequest = MixRequest
                     , outAddr  :: Address
                     } deriving (Eq, Show)
 
+instance ToJSON MixRequest where
+  toJSON MixRequest{..} = object $ [ "sendBy" .= sendBy
+                                   , "returnBy" .= returnBy
+                                   , "nonce" .= nonce
+                                   , "outAddr" .= outAddr ]
+
+
 instance FromJSON MixRequest where
   parseJSON (Object v) = MixRequest <$>
          v .: "sendBy" <*>
@@ -73,13 +81,40 @@ data SignedMixRequest = SignedMixRequest
                           , warrant       :: !String
                           } deriving (Eq, Show)
 
+-- accessors for SignedMixRequest
+sendBySigned, returnBySigned :: SignedMixRequest -> BlockHeight
+sendBySigned = sendBy . mixReq . labeledMixReq
+returnBySigned = returnBy . mixReq . labeledMixReq
+
+nonceSigned :: SignedMixRequest -> Int
+nonceSigned = nonce . mixReq . labeledMixReq
+
+outAddrSigned :: SignedMixRequest -> Address
+outAddrSigned = outAddr . mixReq . labeledMixReq
+
+escrowAddrSigned :: SignedMixRequest -> Address
+escrowAddrSigned = escrowAddr . labeledMixReq
+
+-- key order: sendBy, returnBy, nonce, outAddr, escrowAddr, warrant
 instance ToJSON SignedMixRequest where
-  toJSON SignedMixRequest{..} = object [ "sendBy" .= (sendBy . mixReq) labeledMixReq
-                                         , "returnBy" .= (returnBy . mixReq) labeledMixReq
-                                         , "nonce" .= (nonce . mixReq) labeledMixReq
-                                         , "outAddr" .= (outAddr . mixReq) labeledMixReq
-                                         , "escrowAddr" .= escrowAddr labeledMixReq
-                                         , "warrant" .= warrant ]
+  toJSON s = Array . V.fromList $ [ object [ "sendBy" .= sendBySigned s ]
+                                , object [ "returnBy" .= returnBySigned s ]
+                                , object [ "nonce" .= nonceSigned s ]
+                                , object [ "outAddr" .= outAddrSigned s ]
+                                , object [ "escrowAddr" .= escrowAddrSigned s ]
+                                , object [ "warrant" .= warrant s ] ]
+
+instance FromJSON SignedMixRequest where
+  parseJSON j = do
+    [sendby', returnby', nonce', out', escrow', warrant'] <- parseJSON j
+    mixreq <- MixRequest <$> sendby' .: "sendBy"
+    			<*> returnby' .: "returnBy"
+              		<*> nonce' .: "nonce"
+              		<*> out' .: "outAddr"
+    labeled <- LabeledMixRequest mixreq <$> escrow' .: "escrowAddr"
+    SignedMixRequest labeled <$> warrant' .: "warrant"
+
+  parseJSON _ = mzero
 
 data MixcoinState = MixcoinState
                     { config   :: MixcoinConfig
