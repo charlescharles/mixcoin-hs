@@ -22,23 +22,13 @@ import           Data.Maybe                     (fromJust)
 import qualified Data.Text                      as T
 import           Data.Vector                    (fromList, toList)
 import           Data.Word
+import           Mixcoin.Types
 import qualified Network.Bitcoin.BlockChain     as BB
 import qualified Network.Bitcoin.RawTransaction as BR
 import qualified Network.Bitcoin.Types          as BT
 import           Network.Bitcoin.Wallet         (Client)
 import qualified Network.Bitcoin.Wallet         as BW
 import qualified Network.Haskoin.Crypto         as HC
-
-type BTC = BT.BTC
-
-data UTXO = UTXO
-            { unspentTx   :: !BR.UnspentTransaction
-            , destAddr    :: !HC.Address
-            , blockHash   :: !HC.BlockHash
-            , blockHeight :: !Word32
-            , outIndex    :: !Word32
-             }
-            deriving (Eq, Show)
 
 acctName :: BT.Account
 acctName = T.pack "mixcoin"

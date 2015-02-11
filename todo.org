@@ -14,3 +14,6 @@
 ** TODO persist outstanding commitments
 * DONE configuration
   CLOSED: [2015-02-07 Sat 22:31]
+* TODO crypto stuff
+** TODO generate/load a private key
+** TODO hash the nonce || blockhash

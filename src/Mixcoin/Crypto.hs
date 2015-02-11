@@ -2,10 +2,13 @@
 
 module Mixcoin.Crypto
 
-( MixcoinPrivKey
-, MixcoinPubKey
-, genWarrant
+( genWarrant
 , verifyWarrant
+, getPrivKey
+
+, randGen
+, readTVarIO
+, sha256
 )
 
 where
@@ -18,12 +21,8 @@ import           Data.Aeson              (ToJSON, encode)
 import           Data.ByteString         (ByteString)
 import           Data.ByteString.Lazy    (toStrict)
 import           Data.Functor            ((<$>))
-import           Mixcoin.Mix
+import           Mixcoin.Types
 import           System.IO.Unsafe        (unsafePerformIO)
-
-type MixcoinPrivKey = PrivateKey
-
-type MixcoinPubKey = PublicKey
 
 sha256 :: HashFunction
 sha256 = hashFunction hashDescrSHA256
@@ -34,7 +33,10 @@ encode' = toStrict . encode
 randGen :: TVar SystemRNG
 randGen = unsafePerformIO $ (cprgCreate <$> createEntropyPool) >>= newTVarIO
 
-genWarrant :: MixcoinPrivKey -> SignedMixRequest -> IO String
+getPrivKey :: IO MixcoinPrivKey
+getPrivKey = return $ PrivateKey (Params 1 2 3) 4
+
+genWarrant :: MixcoinPrivKey -> LabeledMixRequest -> IO String
 genWarrant pk req = do
   g <- readTVarIO randGen
   let (sig, g') = sign g pk sha256 (encode' req)

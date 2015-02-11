@@ -7,6 +7,7 @@ import           Control.Concurrent.STM
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.Writer
+import qualified Crypto.Hash.SHA256        as SHA256 (hash)
 import           Data.Configurator
 import           Data.Functor              ((<$>))
 import qualified Data.Map                  as M
@@ -14,6 +15,7 @@ import qualified Data.Text.Lazy            as T
 import           Mixcoin.BitcoinClient
 import           Mixcoin.Crypto
 import           Mixcoin.Mix
+import           Mixcoin.Types
 import           Network.Haskoin.Constants (switchToTestnet3)
 import           Network.Haskoin.Crypto
 import           Network.HTTP.Types        (badRequest400)
@@ -22,7 +24,15 @@ import           Web.Scotty
 
 
 testConfig :: IO MixcoinConfig
-testConfig = (MixcoinConfig 0.02 0.01 0.002 1) <$> (getClient' "http://127.0.0.1:9001" "cguo" "Thereis1")
+testConfig = do
+  c <- getClient' "http://127.0.0.1:9001" "cguo" "Thereis1"
+  pk <- getPrivKey
+  return $ MixcoinConfig { chunkSize = 0.02
+                         , minerFee = 0.01
+                         , feeProbability = 0.002
+                         , minConfs = 1
+                         , client = c
+                         , privKey = pk }
 
 getConfig :: IO MixcoinConfig
 getConfig = do
@@ -35,11 +45,13 @@ getConfig = do
   btcUser <- require cfg "bitcoind-user"
   btcPass <- require cfg "bitcoind-pass"
   client' <- getClient' btcHost btcUser btcPass
+  pk <- getPrivKey
   return $ MixcoinConfig { chunkSize = chunkSize'
               		 , minerFee = minerFee'
                          , feeProbability = feeProb
              		 , minConfs = minConfs'
-              		 , client = client' }
+              		 , client = client'
+                         , privKey = pk }
 
 main :: IO ()
 main = do
@@ -106,7 +118,9 @@ moveToPool dest addr ut = do
 
 -- hash nonce || blockhash
 isFee :: Float -> UTXO -> LabeledMixRequest -> Bool
-isFee _ _ _ = False
+isFee prob ut req = False where
+  non = nonce (mixReq req)
+  hash = blockHash ut
 
 -- generate delay, wait, send chunk
 mix :: LabeledMixRequest -> Mixcoin ()
