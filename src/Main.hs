@@ -19,7 +19,11 @@ import           Mixcoin.Types
 import           Network.Haskoin.Constants (switchToTestnet3)
 import           Network.Haskoin.Crypto
 import           Network.HTTP.Types        (badRequest400)
-import           System.IO                 (Handle, stderr)
+import           System.Log.Handler.Syslog (Facility (..), openlog)
+import           System.Log.Logger         (Priority (..), addHandler, debugM,
+                                            errorM, infoM, rootLoggerName,
+                                            setHandlers, updateGlobalLogger,
+                                            warningM)
 import           Web.Scotty
 
 
@@ -53,9 +57,14 @@ getConfig = do
               		 , client = client'
                          , privKey = pk }
 
+startLogger :: IO ()
+startLogger = openlog "Mixcoin.Server" [] USER INFO >>=
+              updateGlobalLogger rootLoggerName . addHandler
+
 main :: IO ()
 main = do
   switchToTestnet3
+  startLogger
   mixState <- testConfig >>= newState
   _ <- forkIO $ execMixcoin mixState watchForTxs
   scotty 9000 (server mixState)

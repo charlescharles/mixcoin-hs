@@ -31,7 +31,7 @@ encode' :: ToJSON a => a -> ByteString
 encode' = toStrict . encode
 
 randGen :: TVar SystemRNG
-randGen = unsafePerformIO $ (cprgCreate <$> createEntropyPool) >>= newTVarIO
+randGen = unsafePerformIO (newTVarIO =<< cprgCreate <$> createEntropyPool)
 
 getPrivKey :: IO MixcoinPrivKey
 getPrivKey = return $ PrivateKey (Params 1 2 3) 4
