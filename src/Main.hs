@@ -26,11 +26,10 @@ import           System.Log.Logger         (Priority (..), addHandler, debugM,
                                             warningM)
 import           Web.Scotty
 
-
 testConfig :: IO MixcoinConfig
 testConfig = do
   c <- getClient' "http://127.0.0.1:9001" "cguo" "Thereis1"
-  pk <- getPrivKey
+  pk <- testPrivKey
   return $ MixcoinConfig { chunkSize = 0.02
                          , minerFee = 0.01
                          , feeProbability = 0.002
