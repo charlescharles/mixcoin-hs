@@ -29,7 +29,7 @@ import           Web.Scotty
 testConfig :: IO MixcoinConfig
 testConfig = do
   c <- getClient' "http://127.0.0.1:9001" "cguo" "Thereis1"
-  pk <- testPrivKey
+  pk <- genPrivKey
   return $ MixcoinConfig { chunkSize = 0.02
                          , minerFee = 0.01
                          , feeProbability = 0.002
@@ -48,7 +48,8 @@ getConfig = do
   btcUser <- require cfg "bitcoind-user"
   btcPass <- require cfg "bitcoind-pass"
   client' <- getClient' btcHost btcUser btcPass
-  pk <- getPrivKey
+  -- TODO replace in prod
+  pk <- genPrivKey
   return $ MixcoinConfig { chunkSize = chunkSize'
               		 , minerFee = minerFee'
                          , feeProbability = feeProb
@@ -75,7 +76,7 @@ server mstate = do
 mixRequest :: MixcoinState -> ActionM ()
 mixRequest mstate = do
   c <- jsonData
-  (res, _) <- liftIO $ runMixcoin mstate (handleMixRequest c)
+  res <- liftIO $ runMixcoin mstate (handleMixRequest c)
   case res of
    Left err -> do
      status badRequest400
@@ -87,7 +88,6 @@ watchForTxs = forever $ receiveTxs >> waitMinutes 10
 
 receiveTxs :: Mixcoin ()
 receiveTxs = do
-  tell ["scanning for transactions"]
   addrs <- asks pending >>= liftIO . fmap M.keys . readTVarIO
   c <- client <$> asks config
   confs <- minConfs <$> asks config

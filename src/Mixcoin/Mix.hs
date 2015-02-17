@@ -46,14 +46,11 @@ addToPending r = do
   liftIO $ atomically $ modifyTVar' pend (M.insert escrow labeled)
   return labeled
 
-{--
 sign :: LabeledMixRequest -> Mixcoin SignedMixRequest
 sign req = do
   pk <- privKey <$> asks config
   w <- liftIO $ genWarrant pk req
-  return $ SignedMixRequest req w
---}
-sign r = return $ SignedMixRequest r "fake warrant"
+  maybe (throwError $ MixcoinError "failed signature") (return . SignedMixRequest req) w
 
 -- randomly pop an element from the mixing TVar
 popMixingUtxo :: Mixcoin UTXO

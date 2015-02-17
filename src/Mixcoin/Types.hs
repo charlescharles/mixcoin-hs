@@ -19,7 +19,6 @@ module Mixcoin.Types
 , BlockHeight
 , BTC
 , runMixcoin
-, evalMixcoin
 , execMixcoin
 , newState
 )
@@ -33,7 +32,7 @@ import           Control.Monad.Error.Class      (MonadError, throwError)
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Either
 import           Control.Monad.Writer
-import           Crypto.PubKey.DSA              (PrivateKey, PublicKey)
+import           Crypto.PubKey.RSA              (PrivateKey, PublicKey)
 import           Data.Aeson                     (FromJSON, ToJSON, Value (..),
                                                  object, parseJSON, toJSON,
                                                  (.:), (.=))
@@ -166,17 +165,13 @@ type MixcoinPrivKey = PrivateKey
 type MixcoinPubKey = PublicKey
 
 newtype Mixcoin a = Mixcoin
-                    { runM :: EitherT MixcoinError (WriterT [Log] (ReaderT MixcoinState IO)) a }
+                    { runM :: EitherT MixcoinError (ReaderT MixcoinState IO) a }
                     deriving (Functor, Applicative, Monad,
                               MonadReader MixcoinState,
-                              MonadIO, MonadWriter [Log],
-                              MonadError MixcoinError)
+                              MonadIO, MonadError MixcoinError)
 
-runMixcoin :: MixcoinState -> Mixcoin a -> IO (Either MixcoinError a, [Log])
-runMixcoin s = flip runReaderT s . (runWriterT . runEitherT . runM)
-
-evalMixcoin :: MixcoinState -> Mixcoin a -> IO (Either MixcoinError a)
-evalMixcoin s = fmap fst . runMixcoin s
+runMixcoin :: MixcoinState -> Mixcoin a -> IO (Either MixcoinError a)
+runMixcoin s = flip runReaderT s . (runEitherT . runM)
 
 execMixcoin :: MixcoinState -> Mixcoin a -> IO ()
 execMixcoin s m = runMixcoin s m >> return ()
