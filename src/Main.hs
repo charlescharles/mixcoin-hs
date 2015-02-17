@@ -127,8 +127,8 @@ moveToPool dest addr ut = do
 -- hash nonce || blockhash
 isFee :: Float -> UTXO -> LabeledMixRequest -> Bool
 isFee prob ut req = False where
-  non = nonce (mixReq req)
-  hash = blockHash ut
+  r = nonce (mixReq req)
+  h = blockHash ut
 
 -- generate delay, wait, send chunk
 mix :: LabeledMixRequest -> Mixcoin ()
