@@ -172,7 +172,7 @@ generateDelay req = do
   let deadline = (returnBy . mixReq) req - confs
       (nBlocks, g') = randomR (curHeight, deadline - 1) g
   liftIO $ setStdGen g'
-  return (10 * (fromIntegral nBlocks))
+  return (9 * (fromIntegral nBlocks))
 
 waitSend :: Int -> Address -> Mixcoin ()
 waitSend d dest = do
