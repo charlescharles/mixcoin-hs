@@ -17,11 +17,9 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe
 import qualified Data.ByteString.Char8          as C8
 import           Data.Functor                   ((<$>))
-import           Data.Maybe                     (catMaybes)
-import           Data.Maybe                     (fromJust)
+import           Data.Maybe                     (catMaybes, fromJust)
 import qualified Data.Text                      as T
 import           Data.Vector                    (fromList, toList)
-import           Data.Word
 import           Mixcoin.Types
 import qualified Network.Bitcoin.BlockChain     as BB
 import qualified Network.Bitcoin.RawTransaction as BR
@@ -40,10 +38,14 @@ getNewAddress :: Client -> IO HC.Address
 getNewAddress c = (fromJust . convertAddress) <$> BW.getNewAddress c (Just acctName)
 
 getReceivedForAddresses :: Client -> [HC.Address] -> Int -> IO [UTXO]
-getReceivedForAddresses c as minConf = catMaybes <$> (unspent >>= mapM (processReceived c)) where
+getReceivedForAddresses c as minConf = catMaybes . asked <$> (unspent >>= toUtxos) where
   unspent = toList <$> BR.listUnspent c (Just minConf) Nothing (fromList addrs)
+  -- asked filters out the `Maybe UTXO`s that we didn't ask for
+  asked = filter (maybe False (\ut -> (destAddr ut) `elem` as))
+  toUtxos = mapM (processReceived c)
   addrs = map convertAddress' as
 
+-- turn UnspentTransaction into UTXO, fetching additional info along the way
 processReceived :: Client -> BR.UnspentTransaction -> IO (Maybe UTXO)
 processReceived c ut@(BR.UnspentTransaction txid outidx addr _ _ _ _) = runMaybeT $ do
   addr' <- MaybeT . return $ convertAddress addr

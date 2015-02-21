@@ -4,7 +4,7 @@
 
 module Mixcoin.Types
 
-( BlockHeight
+( Address
 , MixcoinConfig (..)
 , MixRequest (..)
 , LabeledMixRequest (..)
@@ -21,6 +21,19 @@ module Mixcoin.Types
 , runMixcoin
 , execMixcoin
 , newState
+, throwError
+
+-- logging
+, Facility (..)
+, Priority (..)
+, openlog
+, addHandler
+, infoM, debugM, warningM, errorM
+, rootLoggerName
+, setHandlers
+, setLevel
+, updateGlobalLogger
+, getBigWordInteger
 )
 
 where
@@ -41,6 +54,13 @@ import           Data.Word                      (Word32)
 import qualified Network.Bitcoin.RawTransaction as BR (UnspentTransaction)
 import           Network.Bitcoin.Types          (BTC, Client)
 import           Network.Haskoin.Crypto         (Address, BlockHash)
+import           Network.Haskoin.Internals      (BigWord (..))
+import           System.Log.Handler.Syslog      (Facility (..), openlog)
+import           System.Log.Logger              (Priority (..), addHandler,
+                                                 debugM, errorM, infoM,
+                                                 rootLoggerName, setHandlers,
+                                                 setLevel, updateGlobalLogger,
+                                                 warningM)
 
 data UTXO = UTXO
             { unspentTx   :: !BR.UnspentTransaction
@@ -65,7 +85,7 @@ data MixcoinConfig = MixcoinConfig
 data MixRequest = MixRequest
                     { sendBy   :: BlockHeight
                     , returnBy :: BlockHeight
-                    , nonce    :: Int
+                    , nonce    :: Word32
                     , outAddr  :: Address
                     } deriving (Eq, Show)
 
@@ -118,7 +138,7 @@ sendBySigned, returnBySigned :: SignedMixRequest -> BlockHeight
 sendBySigned = sendBy . mixReq . labeledMixReq
 returnBySigned = returnBy . mixReq . labeledMixReq
 
-nonceSigned :: SignedMixRequest -> Int
+nonceSigned :: SignedMixRequest -> Word32
 nonceSigned = nonce . mixReq . labeledMixReq
 
 outAddrSigned :: SignedMixRequest -> Address
