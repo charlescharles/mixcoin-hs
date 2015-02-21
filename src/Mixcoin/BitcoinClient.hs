@@ -10,6 +10,7 @@ module Mixcoin.BitcoinClient
 , sendChunkWithFee
 , getNewAddress
 , getUtxosForAccount
+, getChainHeight
 )
 
 where
@@ -77,3 +78,6 @@ getUtxosForAccount c acct = do
   addrsVec <- B.getAddressesByAccount c (T.pack acct)
   let addrs = (catMaybes . map convertAddress . toList) addrsVec
   getReceivedForAddresses c addrs 1
+
+getChainHeight :: Client -> IO BlockHeight
+getChainHeight = fmap fromIntegral . B.getBlockCount

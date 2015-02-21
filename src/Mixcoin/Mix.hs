@@ -89,7 +89,7 @@ popFeeUtxo = do
   feeAmt <- minerFee <$> asks config
   maybeUtxo <- liftIO $ atomically $ do
     utxos <- readTVar retain
-    case find (\(i, u) -> amount u > feeAmt) (zip [1..] utxos) of
+    case find (\(_, u) -> amount u > feeAmt) (zip [1..] utxos) of
      Just (i, u) -> do
        modifyTVar' retain (removeAt i)
        return (Just u)
@@ -164,7 +164,15 @@ mix c = do
 
 -- generate delay in minutes
 generateDelay :: LabeledMixRequest -> Mixcoin Int
-generateDelay c = return 3
+generateDelay req = do
+  c <- client <$> asks config
+  confs <- fromIntegral . minConfs <$> asks config
+  curHeight <- liftIO $ getChainHeight c
+  g <- liftIO getStdGen
+  let deadline = (returnBy . mixReq) req - confs
+      (nBlocks, g') = randomR (curHeight, deadline - 1) g
+  liftIO $ setStdGen g'
+  return (10 * (fromIntegral nBlocks))
 
 waitSend :: Int -> Address -> Mixcoin ()
 waitSend d dest = do
