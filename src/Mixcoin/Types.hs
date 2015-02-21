@@ -68,6 +68,7 @@ data UTXO = UTXO
             , blockHash   :: !BlockHash
             , blockHeight :: !BlockHeight
             , outIndex    :: !Word32
+            , amount      :: !BTC
              }
             deriving (Eq, Show)
 

@@ -17,6 +17,7 @@ import           Control.Monad.Reader
 import qualified Crypto.Hash.SHA256     as SHA256 (hash)
 import qualified Data.Bits              as Bits (xor)
 import qualified Data.ByteString        as BS
+import           Data.List              (find)
 import qualified Data.Map               as M
 import           Mixcoin.BitcoinClient
 import           Mixcoin.Common.Util
@@ -81,8 +82,19 @@ popMixingUtxo = do
   liftIO $ setStdGen g'
   return addr
 
+-- pop the first fee UTXO with sufficient funds
 popFeeUtxo :: Mixcoin UTXO
-popFeeUtxo = undefined
+popFeeUtxo = do
+  retain <- asks retained
+  feeAmt <- minerFee <$> asks config
+  maybeUtxo <- liftIO $ atomically $ do
+    utxos <- readTVar retain
+    case find (\(i, u) -> amount u > feeAmt) (zip [1..] utxos) of
+     Just (i, u) -> do
+       modifyTVar' retain (removeAt i)
+       return (Just u)
+     Nothing -> return Nothing
+  maybe (throwError $ MixcoinError "insufficient fee UTXOs") return maybeUtxo
 
 removeAt :: Int -> [a] -> [a]
 removeAt i xs = take i xs ++ drop (succ i) xs
@@ -161,10 +173,16 @@ waitSend d dest = do
   utxo <- popMixingUtxo
   feeUtxo <- popFeeUtxo
   cfg <- asks config
-  let c = client cfg
-      destAmt = chunkSize cfg
-      feeAmt = minerFee cfg
+  let c		 = client cfg
+      destAmt	 = chunkSize cfg
+      feeAmt	 = minerFee cfg
   liftIO $ sendChunkWithFee c utxo feeUtxo dest destAmt feeAmt
+
+  -- put the fee utxo back in with a decreased amount
+  let remaining = (amount feeUtxo) - feeAmt
+  retain <- asks retained
+  liftIO $ atomically $ modifyTVar' retain (++ [feeUtxo {amount = remaining}])
+
 
 waitMinutes :: MonadIO m => Int -> m ()
 waitMinutes = liftIO . threadDelay . minutes

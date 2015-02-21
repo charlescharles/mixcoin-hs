@@ -45,7 +45,7 @@ getReceivedForAddresses c as minConf = catMaybes . asked <$> (unspent >>= toUtxo
 
 -- turn UnspentTransaction into UTXO, fetching additional info along the way
 processReceived :: Client -> B.UnspentTransaction -> IO (Maybe UTXO)
-processReceived c ut@(B.UnspentTransaction txid outidx addr _ _ _ _) = runMaybeT $ do
+processReceived c ut@(B.UnspentTransaction txid outidx addr _ _ amt _) = runMaybeT $ do
   addr' <- MaybeT . return $ convertAddress addr
   let outidx' = fromIntegral outidx
   rawTx <- liftIO $ B.getRawTransactionInfo c txid
@@ -53,7 +53,7 @@ processReceived c ut@(B.UnspentTransaction txid outidx addr _ _ _ _) = runMaybeT
   hash' <- MaybeT . return $ (H.decodeBlockHashLE . T.unpack) hash
   blk <- liftIO $ B.getBlock c hash
   let height = fromIntegral (B.blkHeight blk)
-  return $ UTXO { unspentTx = ut, destAddr = addr', blockHash = hash', blockHeight = height, outIndex = outidx' }
+  return $ UTXO { unspentTx = ut, destAddr = addr', blockHash = hash', blockHeight = height, outIndex = outidx', amount = amt}
 
 convertAddress :: B.Address -> Maybe H.Address
 convertAddress = H.base58ToAddr . T.unpack
