@@ -4,28 +4,36 @@
 module Mixcoin.Mix
 
 ( handleMixRequest
-, watchForTxs
-, bsToInteger
+, startMix
 )
 
 where
 
 import           Control.Applicative
-import           Control.Concurrent      (forkIO, threadDelay)
+import           Control.Concurrent     (forkIO, threadDelay)
 import           Control.Concurrent.STM
 import           Control.Monad
 import           Control.Monad.Reader
-import qualified Crypto.Hash.SHA256      as SHA256 (hash)
-import qualified Data.Bits               as Bits (xor)
-import qualified Data.ByteString         as BS
-import qualified Data.ByteString.Builder as Builder
-import           Data.ByteString.Lazy    (toStrict)
-import qualified Data.Map                as M
+import qualified Crypto.Hash.SHA256     as SHA256 (hash)
+import qualified Data.Bits              as Bits (xor)
+import qualified Data.ByteString        as BS
+import qualified Data.Map               as M
 import           Mixcoin.BitcoinClient
 import           Mixcoin.Common.Util
 import           Mixcoin.Crypto
 import           Mixcoin.Types
 import           System.Random
+
+startMix :: Mixcoin ()
+startMix = populateFeeReserves >> watchForTxs
+
+populateFeeReserves :: Mixcoin ()
+populateFeeReserves = do
+  feeAcct <- feeAccount <$> asks config
+  cl <- client <$> asks config
+  utxos <- liftIO $ getUtxosForAccount cl feeAcct
+  retain <- asks retained
+  liftIO $ atomically $ modifyTVar' retain (++ utxos)
 
 handleMixRequest :: MixRequest -> Mixcoin SignedMixRequest
 handleMixRequest r = do

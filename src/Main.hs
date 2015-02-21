@@ -65,7 +65,7 @@ main = do
   startLogger
   liftIO $ infoM "Mixcoin.Server" "starting server"
   mixState <- testConfig >>= newState
-  _ <- forkIO $ execMixcoin mixState watchForTxs
+  _ <- forkIO $ execMixcoin mixState startMix
   scotty 9000 (server mixState)
 
 server :: MixcoinState -> ScottyM ()

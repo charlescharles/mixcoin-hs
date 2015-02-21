@@ -16,19 +16,15 @@ where
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe
-import qualified Data.ByteString.Char8          as C8
-import           Data.Functor                   ((<$>))
-import           Data.Maybe                     (catMaybes, fromJust)
-import qualified Data.Text                      as T
-import           Data.Vector                    (fromList, toList)
+import qualified Data.ByteString.Char8     as C8
+import           Data.Functor              ((<$>))
+import           Data.Maybe                (catMaybes, fromJust)
+import qualified Data.Text                 as T
+import           Data.Vector               (fromList, toList)
 import           Mixcoin.Types
-import qualified Network.Bitcoin                as B
-import qualified Network.Bitcoin.BlockChain     as BB
-import qualified Network.Bitcoin.RawTransaction as BR
-import qualified Network.Bitcoin.Types          as BT
-import           Network.Bitcoin.Wallet         (Client)
-import qualified Network.Bitcoin.Wallet         as BW
-import qualified Network.Haskoin.Crypto         as H
+import           Network.Bitcoin           (Client)
+import qualified Network.Bitcoin           as B
+import qualified Network.Haskoin.Crypto    as H
 
 acctName :: B.Account
 acctName = T.pack "mixcoin"
@@ -60,10 +56,10 @@ processReceived c ut@(B.UnspentTransaction txid outidx addr _ _ _ _) = runMaybeT
   return $ UTXO { unspentTx = ut, destAddr = addr', blockHash = hash', blockHeight = height, outIndex = outidx' }
 
 convertAddress :: B.Address -> Maybe H.Address
-convertAddress = HC.base58ToAddr . T.unpack
+convertAddress = H.base58ToAddr . T.unpack
 
 convertAddress' :: H.Address -> B.Address
-convertAddress' = T.pack . HC.addrToBase58
+convertAddress' = T.pack . H.addrToBase58
 
 sendChunkWithFee :: Client -> UTXO -> UTXO -> H.Address -> BTC -> BTC -> IO ()
 sendChunkWithFee c ut feeUt dest destAmt feeAmt = do
@@ -76,4 +72,8 @@ sendChunkWithFee c ut feeUt dest destAmt feeAmt = do
   _ <- B.sendRawTransaction c (B.rawSigned signed)
   return ()
 
-getUtxosForAccount :: Client -> String -> [UTXO]
+getUtxosForAccount :: Client -> String -> IO [UTXO]
+getUtxosForAccount c acct = do
+  addrsVec <- B.getAddressesByAccount c (T.pack acct)
+  let addrs = (catMaybes . map convertAddress . toList) addrsVec
+  getReceivedForAddresses c addrs 1
