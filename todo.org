@@ -8,12 +8,17 @@
    CLOSED: [2015-02-07 Sat 22:31]
 ** DONE convert Word64 to Fixed Satoshi
    CLOSED: [2015-02-10 Tue 00:52]
-* TODO logging
-** TODO separate loggers for server, btcclient, mixer
+* DONE logging
+  CLOSED: [2015-02-20 Fri 23:45]
+** DONE separate loggers for server, btcclient, mixer
+   CLOSED: [2015-02-20 Fri 23:45]
 * TODO persistence
 ** TODO persist outstanding commitments
 * DONE configuration
   CLOSED: [2015-02-07 Sat 22:31]
-* TODO crypto stuff
-** TODO generate/load a private key
-** TODO hash the nonce || blockhash
+* DONE crypto stuff
+  CLOSED: [2015-02-20 Fri 23:45]
+** DONE generate/load a private key
+   CLOSED: [2015-02-20 Fri 23:45]
+** DONE hash the nonce || blockhash
+   CLOSED: [2015-02-20 Fri 23:45]
