@@ -24,6 +24,7 @@ testConfig = do
   return $ MixcoinConfig { chunkSize = 0.02
                          , minerFee = 0.01
                          , feeProbability = 0.002
+                         , feeAccount = "mixcoin-fees"
                          , minConfs = 1
                          , client = c
                          , privKey = pk }
@@ -35,6 +36,7 @@ getConfig = do
   minerFee' <- require cfg "miner-fee" :: IO BTC
   feeProb <- require cfg "fee-percentage"
   minConfs' <- require cfg "min-confirmations"
+  feeAcct <- require cfg "fee-account"
   btcHost <- require cfg "bitcoind-host"
   btcUser <- require cfg "bitcoind-user"
   btcPass <- require cfg "bitcoind-pass"
@@ -47,6 +49,7 @@ getConfig = do
               		 , minerFee = minerFee'
                          , feeProbability = feeProb
              		 , minConfs = minConfs'
+                         , feeAccount = feeAcct
               		 , client = client'
                          , privKey = pk }
 

@@ -80,6 +80,7 @@ data MixcoinConfig = MixcoinConfig
               , minConfs       :: Int
               , client         :: Client
               , privKey        :: MixcoinPrivKey
+              , feeAccount     :: String -- ^ the account containing fee chunks
               }
 
 data MixRequest = MixRequest
