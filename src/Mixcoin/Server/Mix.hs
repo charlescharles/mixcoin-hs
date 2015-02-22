@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
-module Mixcoin.Mix
+module Mixcoin.Server.Mix
 
 ( handleMixRequest
 , startMix
@@ -19,10 +19,10 @@ import qualified Data.Bits              as Bits (xor)
 import qualified Data.ByteString        as BS
 import           Data.List              (find)
 import qualified Data.Map               as M
-import           Mixcoin.BitcoinClient
+import           Mixcoin.Common.BitcoinClient
 import           Mixcoin.Common.Util
-import           Mixcoin.Crypto
-import           Mixcoin.Types
+import           Mixcoin.Common.Crypto
+import           Mixcoin.Server.Types
 import           System.Random
 
 startMix :: Mixcoin ()

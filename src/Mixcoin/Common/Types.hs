@@ -1,27 +1,71 @@
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE OverloadedStrings          #-}
+
 module Mixcoin.Common.Types
 
-( MixRequest (..)
+( Address
+, MixRequest (..)
 , LabeledMixRequest (..)
 , SignedMixRequest (..)
 , MixcoinError (..)
-, Log
 , MixcoinPrivKey
 , MixcoinPubKey
-, )
+, UTXO (..)
+, BlockHeight
+, BTC
+, Client
 
+-- logging
+, Facility (..)
+, Priority (..)
+, openlog
+, addHandler
+, infoM, debugM, warningM, errorM
+, rootLoggerName
+, setHandlers
+, setLevel
+, updateGlobalLogger
+, getBigWordInteger
+)
 
-newtype MixcoinError = MixcoinError String deriving (Eq, Show)
+where
 
-type Log = String
+import           Control.Applicative
+import Control.Monad
+import           Crypto.PubKey.RSA              (PrivateKey, PublicKey)
+import           Data.Aeson                     (FromJSON, ToJSON, Value (..),
+                                                 object, parseJSON, toJSON,
+                                                 (.:), (.=))
+import qualified Data.Map                       as M
+import qualified Data.Vector                    as V (fromList)
+import           Data.Word                      (Word32)
+import qualified Network.Bitcoin as B
+import Network.Bitcoin (BTC, Client)
+import           Network.Haskoin.Crypto         (Address, BlockHash)
+import           Network.Haskoin.Internals      (BigWord (..))
+import           System.Log.Handler.Syslog      (Facility (..), openlog)
+import           System.Log.Logger              (Priority (..), addHandler,
+                                                 debugM, errorM, infoM,
+                                                 rootLoggerName, setHandlers,
+                                                 setLevel, updateGlobalLogger,
+                                                 warningM)
 
-type MixcoinPrivKey = PrivateKey
+data UTXO = UTXO
+            { unspentTx   :: !B.UnspentTransaction
+            , destAddr    :: !Address
+            , blockHash   :: !BlockHash
+            , blockHeight :: !BlockHeight
+            , outIndex    :: !Word32
+            , amount      :: !BTC
+             }
+            deriving (Eq, Show)
 
-type MixcoinPubKey = PublicKey
+type BlockHeight = Word32
 
 data MixRequest = MixRequest
                     { sendBy   :: BlockHeight
                     , returnBy :: BlockHeight
-                    , nonce    :: Int
+                    , nonce    :: Word32
                     , outAddr  :: Address
                     } deriving (Eq, Show)
 
@@ -74,7 +118,7 @@ sendBySigned, returnBySigned :: SignedMixRequest -> BlockHeight
 sendBySigned = sendBy . mixReq . labeledMixReq
 returnBySigned = returnBy . mixReq . labeledMixReq
 
-nonceSigned :: SignedMixRequest -> Int
+nonceSigned :: SignedMixRequest -> Word32
 nonceSigned = nonce . mixReq . labeledMixReq
 
 outAddrSigned :: SignedMixRequest -> Address
@@ -103,3 +147,13 @@ instance FromJSON SignedMixRequest where
     SignedMixRequest labeled <$> warrant' .: "warrant"
 
   parseJSON _ = mzero
+
+
+newtype MixcoinError = MixcoinError String deriving (Eq, Show)
+
+
+type MixcoinPrivKey = PrivateKey
+
+type MixcoinPubKey = PublicKey
+
+

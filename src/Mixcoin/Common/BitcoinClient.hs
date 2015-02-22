@@ -22,13 +22,9 @@ import           Data.Functor              ((<$>))
 import           Data.Maybe                (catMaybes, fromJust)
 import qualified Data.Text                 as T
 import           Data.Vector               (fromList, toList)
-import           Mixcoin.Types
-import           Network.Bitcoin           (Client)
+import           Mixcoin.Common.Types
 import qualified Network.Bitcoin           as B
 import qualified Network.Haskoin.Crypto    as H
-
-acctName :: B.Account
-acctName = T.pack "mixcoin"
 
 getClient' :: String -> String -> String -> IO Client
 getClient' h u p = B.getClient h (C8.pack u) (C8.pack p)

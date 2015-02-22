@@ -24,7 +24,7 @@ import qualified Data.ByteString.Base64   as B64 (decode, encode)
 import           Data.ByteString.Char8    (pack, unpack)
 import           Data.ByteString.Lazy     (toStrict)
 import           Data.Functor             ((<$>))
-import           Mixcoin.Types
+import           Mixcoin.Common.Types
 import           System.Directory         (getHomeDirectory)
 import           System.IO.Unsafe         (unsafePerformIO)
 
