@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Mixcoin.Crypto
+module Mixcoin.Common.Crypto
 
 ( genWarrant
 , verifyWarrant

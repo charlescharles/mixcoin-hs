@@ -18,22 +18,25 @@ import           Network.Haskoin.Constants (switchToTestnet3)
 import           Network.HTTP.Types        (badRequest400)
 import           Web.Scotty
 
-testConfig :: IO MixcoinConfig
+testConfig :: IO ServerConfig
 testConfig = do
   c <- getClient' "http://127.0.0.1:9001" "cguo" "Thereis1"
   pkRes <- readPrivKey
   let pk = case pkRes of
-    Left e -> error e
-      Right res -> res
-  return $ MixcoinConfig { chunkSize = 0.02
-                         , minerFee = 0.01
-                         , feeProbability = 0.002
-                         , feeAccount = "mixcoin-fees"
-                         , minConfs = 1
-                         , client = c
-                         , privKey = pk }
+        Left e -> error e
+        Right res -> res
+  let mxConfig = MixcoinConfig { chunkSize = 0.02
+                                , minerFee = 0.01
+				, feeProbability = 0.002
+                         	, feeAccount = "mixcoin-fees"
+                         	, minConfs = 1
+                         	, client = c
+                         	, privKey = pk }
+  return $ ServerConfig { port = 9001, mixcoinConfig = mxConfig }
+  
 
-getConfig :: IO MixcoinConfig
+
+getConfig :: IO ServerConfig
 getConfig = do
   cfg <- load [Required "~/.mixcoin/server.cfg"]
   chunkSize' <- require cfg "chunk-size" :: IO BTC
@@ -41,6 +44,7 @@ getConfig = do
   feeProb <- require cfg "fee-percentage"
   minConfs' <- require cfg "min-confirmations"
   feeAcct <- require cfg "fee-account"
+  port <- require cfg "mixcoin-port"
   btcHost <- require cfg "bitcoind-host"
   btcUser <- require cfg "bitcoind-user"
   btcPass <- require cfg "bitcoind-pass"
@@ -49,13 +53,14 @@ getConfig = do
   let pk = case pkRes of
       Left e -> error e
       Right res -> res
-  return $ MixcoinConfig { chunkSize = chunkSize'
-                   , minerFee = minerFee'
-                         , feeProbability = feeProb
-                 , minConfs = minConfs'
-                         , feeAccount = feeAcct
-                   , client = client'
-                         , privKey = pk }
+  let mxCfg = MixcoinConfig { chunkSize = chunkSize'
+                   		, minerFee = minerFee'
+                         	, feeProbability = feeProb
+                 		, minConfs = minConfs'
+                        	, feeAccount = feeAcct
+                   		, client = client'
+                         	, privKey = pk }
+  return $ ServerConfig { port = port', mixcoinConfig = mxCfg }
 
 startLogger :: IO ()
 startLogger = do
@@ -68,9 +73,10 @@ runServer = do
   switchToTestnet3
   startLogger
   liftIO $ infoM "Mixcoin.Server" "starting server"
-  mixState <- testConfig >>= newState
-  _ <- forkIO $ execMixcoin mixState startMix
-  scotty 9000 (server mixState)
+  cfg <- getConfig
+  let mstate = newState (mixcoinConfig cfg)
+  _ <- forkIO $ execMixcoin mstate startMix
+  scotty (port cfg) (server mstate)
 
 server :: MixcoinState -> ScottyM ()
 server mstate = do

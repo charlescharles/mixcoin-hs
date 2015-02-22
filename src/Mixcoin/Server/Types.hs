@@ -4,6 +4,7 @@ module Mixcoin.Server.Types
 
 ( Address
 , MixcoinConfig (..)
+, ServerConfig (..)
 , MixRequest (..)
 , LabeledMixRequest (..)
 , SignedMixRequest (..)
@@ -38,11 +39,16 @@ where
 import           Control.Applicative
 import           Control.Concurrent.STM
 import           Control.Monad
-import           Control.Monad.Error.Class      (MonadError, throwError)
+import           Control.Monad.Error.Class  (MonadError, throwError)
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Either
-import qualified Data.Map                       as M
-import Mixcoin.Common.Types
+import qualified Data.Map                   as M
+import           Mixcoin.Common.Types
+
+data ServerConfig = ServerConfig
+			{ mixcoinCfg :: MixcoinConfig
+                        , port       :: Int
+                        } deriving (Eq, Show)
 
 data MixcoinConfig = MixcoinConfig
               { chunkSize      :: BTC

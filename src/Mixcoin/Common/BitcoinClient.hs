@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Mixcoin.BitcoinClient
+module Mixcoin.Common.BitcoinClient
 
 ( UTXO (..)
 , Client
@@ -25,6 +25,9 @@ import           Data.Vector               (fromList, toList)
 import           Mixcoin.Common.Types
 import qualified Network.Bitcoin           as B
 import qualified Network.Haskoin.Crypto    as H
+
+acctName :: T.Text
+acctName = T.pack "mixcoin"
 
 getClient' :: String -> String -> String -> IO Client
 getClient' h u p = B.getClient h (C8.pack u) (C8.pack p)
